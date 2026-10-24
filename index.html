@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Fichaje Residencia</title>
+  <meta name="theme-color" content="#1f6f5c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Fichaje">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="icons/icon-192.png" alt="" width="36" height="36">
+      <span id="centerName">Residencia</span>
+    </div>
+    <div class="clock">
+      <div id="clockTime">--:--</div>
+      <div id="clockDate" class="muted"></div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Primera configuración -->
+    <section id="view-setup" class="view card narrow" hidden>
+      <h1>Configuración inicial</h1>
+      <p class="muted">Crea la cuenta de administrador. Con ella podrás dar de alta a los trabajadores y ver todas las horas.</p>
+      <form id="setupForm" autocomplete="off">
+        <label>Nombre del centro
+          <input name="center" required placeholder="Residencia ..." autocomplete="off">
+        </label>
+        <label>Usuario administrador
+          <input name="user" required autocapitalize="none" autocomplete="off" value="admin">
+        </label>
+        <label>Contraseña (mínimo 6 caracteres)
+          <input name="pass" type="password" required minlength="6" autocomplete="new-password">
+        </label>
+        <label>Repite la contraseña
+          <input name="pass2" type="password" required minlength="6" autocomplete="new-password">
+        </label>
+        <button class="btn primary big" type="submit">Crear administrador</button>
+      </form>
+      <hr>
+      <p class="muted">¿Ya tienes una copia de los datos (por ejemplo, desde el iPad)?</p>
+      <button class="btn" type="button" data-action="import-setup">Importar copia de seguridad</button>
+    </section>
+
+    <!-- Pantalla de fichaje -->
+    <section id="view-kiosk" class="view" hidden>
+      <div class="card narrow kiosk">
+        <h1>Fichar</h1>
+        <form id="punchForm" autocomplete="off">
+          <label>Usuario
+            <input name="user" required autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="off">
+          </label>
+          <label>Contraseña
+            <input name="pass" type="password" required autocomplete="off">
+          </label>
+          <div class="punch-buttons">
+            <button class="btn in big" type="submit" value="in">Entrada</button>
+            <button class="btn out big" type="submit" value="out">Salida</button>
+          </div>
+        </form>
+        <p id="punchMsg" class="msg" role="status" aria-live="polite"></p>
+      </div>
+      <div class="kiosk-foot">
+        <button class="btn link" type="button" data-action="go-admin-login">Administración</button>
+      </div>
+    </section>
+
+    <!-- Resultado del fichaje -->
+    <section id="view-result" class="view card narrow" hidden>
+      <div id="resultIcon" class="result-icon"></div>
+      <h1 id="resultTitle"></h1>
+      <p id="resultWho" class="lead"></p>
+      <div class="stats">
+        <div><span class="muted">Hoy</span><strong id="resToday">0:00</strong></div>
+        <div><span class="muted">Esta semana</span><strong id="resWeek">0:00</strong></div>
+        <div><span class="muted">Este mes</span><strong id="resMonth">0:00</strong></div>
+      </div>
+      <button class="btn primary big" type="button" data-action="back-kiosk">Listo</button>
+      <p class="muted small">Volviendo a la pantalla de fichaje en <span id="resCountdown">8</span> s…</p>
+    </section>
+
+    <!-- Login administrador -->
+    <section id="view-admin-login" class="view card narrow" hidden>
+      <h1>Administración</h1>
+      <form id="adminLoginForm" autocomplete="off">
+        <label>Usuario
+          <input name="user" required autocapitalize="none" autocomplete="off">
+        </label>
+        <label>Contraseña
+          <input name="pass" type="password" required autocomplete="off">
+        </label>
+        <button class="btn primary big" type="submit">Entrar</button>
+      </form>
+      <p id="adminLoginMsg" class="msg error" role="status"></p>
+      <button class="btn link" type="button" data-action="back-kiosk">← Volver a fichar</button>
+    </section>
+
+    <!-- Panel administrador -->
+    <section id="view-admin" class="view" hidden>
+      <div class="admin-head">
+        <nav class="tabs" role="tablist">
+          <button class="tab active" data-tab="summary">Horas</button>
+          <button class="tab" data-tab="records">Fichajes</button>
+          <button class="tab" data-tab="employees">Trabajadores</button>
+          <button class="tab" data-tab="data">Datos y ordenador</button>
+        </nav>
+        <button class="btn" type="button" data-action="logout">Salir</button>
+      </div>
+
+      <!-- Horas -->
+      <div class="tabpanel card" data-panel="summary">
+        <div class="filters">
+          <label>Periodo
+            <select id="sumPeriod">
+              <option value="today">Hoy</option>
+              <option value="week">Esta semana</option>
+              <option value="month" selected>Este mes</option>
+              <option value="lastmonth">Mes anterior</option>
+              <option value="year">Este año</option>
+              <option value="all">Todo</option>
+              <option value="custom">Personalizado…</option>
+            </select>
+          </label>
+          <label class="custom-range">Desde <input type="date" id="sumFrom"></label>
+          <label class="custom-range">Hasta <input type="date" id="sumTo"></label>
+          <button class="btn" type="button" data-action="export-summary-csv">Exportar a Excel (CSV)</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Trabajador</th><th>Estado</th><th class="num">Días</th><th class="num">Horas</th><th>Avisos</th><th></th></tr>
+            </thead>
+            <tbody id="sumBody"></tbody>
+            <tfoot><tr><th colspan="3">Total</th><th class="num" id="sumTotal">0:00</th><th colspan="2"></th></tr></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- Fichajes -->
+      <div class="tabpanel card" data-panel="records" hidden>
+        <div class="filters">
+          <label>Trabajador
+            <select id="recEmp"></select>
+          </label>
+          <label>Desde <input type="date" id="recFrom"></label>
+          <label>Hasta <input type="date" id="recTo"></label>
+          <button class="btn primary" type="button" data-action="new-record">+ Añadir fichaje manual</button>
+          <button class="btn" type="button" data-action="export-records-csv">Exportar a Excel (CSV)</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Fecha</th><th>Hora</th><th>Trabajador</th><th>Tipo</th><th>Origen</th><th>Nota</th><th></th></tr>
+            </thead>
+            <tbody id="recBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Trabajadores -->
+      <div class="tabpanel card" data-panel="employees" hidden>
+        <div class="filters">
+          <button class="btn primary" type="button" data-action="new-employee">+ Nuevo trabajador</button>
+          <label class="inline"><input type="checkbox" id="empShowInactive"> Mostrar dados de baja</label>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nombre</th><th>Usuario</th><th>Puesto</th><th>Estado</th><th></th></tr></thead>
+            <tbody id="empBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Datos -->
+      <div class="tabpanel card" data-panel="data" hidden>
+        <h2>Pasar los datos al ordenador</h2>
+        <p>Los fichajes se guardan en la memoria de este dispositivo. Para pasarlos al ordenador por wifi:</p>
+        <ol>
+          <li>Pulsa <b>Enviar copia</b>. En el iPad se abrirá el menú de compartir: elige <b>AirDrop</b> (Mac) o guárdalo en <b>Archivos / iCloud / OneDrive / Google Drive</b> para recogerlo desde un PC con Windows.</li>
+          <li>En el ordenador, abre esta misma aplicación en el navegador, entra como administrador y pulsa <b>Importar copia</b>. Los datos se combinan sin duplicarse.</li>
+          <li>Si solo quieres las horas en Excel, usa <b>Enviar Excel (CSV)</b>.</li>
+        </ol>
+        <div class="actions">
+          <button class="btn primary" type="button" data-action="share-backup">Enviar copia (JSON)</button>
+          <button class="btn" type="button" data-action="share-csv">Enviar Excel (CSV)</button>
+          <button class="btn" type="button" data-action="import">Importar copia</button>
+        </div>
+        <p class="muted small" id="lastBackup"></p>
+
+        <h2>Ajustes</h2>
+        <form id="settingsForm" class="grid2" autocomplete="off">
+          <label>Nombre del centro <input name="center" required></label>
+          <label>Usuario administrador <input name="user" required autocapitalize="none"></label>
+          <label>Nueva contraseña admin (dejar vacío para no cambiar) <input name="pass" type="password" minlength="6" autocomplete="new-password"></label>
+          <label>Contraseña admin actual (obligatoria para guardar) <input name="current" type="password" required autocomplete="current-password"></label>
+          <div><button class="btn primary" type="submit">Guardar ajustes</button></div>
+        </form>
+
+        <h2>Almacenamiento</h2>
+        <p class="muted small" id="storageInfo"></p>
+        <details>
+          <summary>Zona peligrosa</summary>
+          <p>Borra todos los datos de <b>este dispositivo</b>. Haz antes una copia.</p>
+          <button class="btn danger" type="button" data-action="wipe">Borrar todos los datos</button>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <!-- Diálogos -->
+  <dialog id="dlgEmployee">
+    <form method="dialog" id="employeeForm" autocomplete="off">
+      <h2 id="dlgEmployeeTitle">Trabajador</h2>
+      <label>Nombre y apellidos <input name="name" required></label>
+      <label>Usuario (para fichar) <input name="username" required autocapitalize="none" autocorrect="off" spellcheck="false"></label>
+      <label>Puesto <input name="role" placeholder="Auxiliar, enfermería, cocina…"></label>
+      <label><span id="empPassLabel">Contraseña</span> <input name="pass" type="password" autocomplete="new-password"></label>
+      <label class="inline"><input type="checkbox" name="active" checked> Activo</label>
+      <p class="msg error" id="empMsg"></p>
+      <div class="dlg-actions">
+        <button class="btn" value="cancel" formnovalidate>Cancelar</button>
+        <button class="btn primary" value="ok">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlgRecord">
+    <form method="dialog" id="recordForm" autocomplete="off">
+      <h2 id="dlgRecordTitle">Fichaje manual</h2>
+      <label>Trabajador <select name="empId" required></select></label>
+      <label>Tipo
+        <select name="type"><option value="in">Entrada</option><option value="out">Salida</option></select>
+      </label>
+      <div class="grid2">
+        <label>Fecha <input name="date" type="date" required></label>
+        <label>Hora <input name="time" type="time" required></label>
+      </div>
+      <label>Motivo / nota <input name="note" placeholder="Olvidó fichar, corrección…" required></label>
+      <div class="dlg-actions">
+        <button class="btn" value="cancel" formnovalidate>Cancelar</button>
+        <button class="btn primary" value="ok">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlgDetail">
+    <div class="dlg-body">
+      <h2 id="detailTitle"></h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Día</th><th>Tramos</th><th class="num">Horas</th></tr></thead>
+          <tbody id="detailBody"></tbody>
+        </table>
+      </div>
+      <div class="dlg-actions"><button class="btn primary" data-action="close-detail">Cerrar</button></div>
+    </div>
+  </dialog>
+
+  <input type="file" id="importFile" accept=".json,application/json" hidden>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/sha256.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/hours.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
