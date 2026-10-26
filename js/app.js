@@ -12,8 +12,8 @@
   var adminLogged = false;
   var adminIdleTimer = null;
   var resultTimer = null;
-  var fails = 0;
-  var lockedUntil = 0;
+  var PUNCH_IDLE_MS = 30 * 1000;
+  var lockouts = {}; // intentos fallidos por usuario: { fails, until }
   var editingRecordId = null;
   var editingEmployeeId = null;
 
@@ -28,6 +28,23 @@
   function fDateTime(ts) { return new Date(ts).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
   function timeInput(ts) { var d = new Date(ts); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
 
+  // Bloqueo por usuario tras varios intentos fallidos (no bloquea a los demás).
+  function lockedFor(key) {
+    var l = lockouts[key];
+    return l && Date.now() < l.until ? Math.ceil((l.until - Date.now()) / 1000) : 0;
+  }
+  function registerFail(key) {
+    var l = lockouts[key] || (lockouts[key] = { fails: 0, until: 0 });
+    l.fails++;
+    if (l.fails >= MAX_FAILS) { l.until = Date.now() + LOCK_MS; l.fails = 0; }
+  }
+  function clearFails(key) { delete lockouts[key]; }
+
+  function saveFailed(err) {
+    console.error(err);
+    alert('ATENCIÓN: no se han podido guardar los datos en este dispositivo.\n\nAvisa a administración y envía una copia al ordenador cuanto antes.');
+  }
+
   function toast(msg) {
     var t = $('#toast');
     t.textContent = msg;
@@ -38,8 +55,46 @@
 
   function show(view) {
     $$('.view').forEach(function (v) { v.hidden = v.id !== 'view-' + view; });
+    hidePasswords(document);
     window.scrollTo(0, 0);
   }
+
+  // Iniciales para el círculo junto al nombre (solo visual).
+  function initials(name) {
+    var w = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!w.length) return '?';
+    var second = w.slice(1).find(function (x) { return x.charAt(0) !== x.charAt(0).toLowerCase(); }) || w[1] || '';
+    return (w[0].charAt(0) + second.charAt(0)).toUpperCase();
+  }
+
+  function person(name, sub) {
+    return '<div class="person"><span class="avatar" aria-hidden="true">' + esc(initials(name)) + '</span>' +
+      '<span class="person-text"><span class="person-name">' + esc(name) + '</span>' +
+      (sub ? '<span class="person-sub">' + esc(sub) + '</span>' : '') + '</span></div>';
+  }
+
+  // ---------- Mostrar / ocultar contraseña (solo visual) ----------
+  function setPassVisible(btn, visible) {
+    var input = btn.parentNode.querySelector('input');
+    input.type = visible ? 'text' : 'password';
+    btn.setAttribute('aria-pressed', visible ? 'true' : 'false');
+    btn.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  }
+  function hidePasswords(root) {
+    $$('.pass-toggle', root).forEach(function (b) { setPassVisible(b, false); });
+  }
+  $$('.pass-toggle').forEach(function (b) {
+    var input = b.parentNode.querySelector('input');
+    var refocus = false;
+    b.addEventListener('pointerdown', function () { refocus = document.activeElement === input; });
+    b.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    b.addEventListener('click', function () {
+      setPassVisible(b, input.type === 'password');
+      if (refocus) input.focus();
+    });
+  });
+  // Al vaciar un formulario, la contraseña vuelve a ocultarse.
+  document.addEventListener('reset', function (e) { hidePasswords(e.target); }, true);
 
   function tickClock() {
     var d = new Date();
@@ -58,62 +113,102 @@
     e.preventDefault();
     var f = e.target;
     if (f.pass.value !== f.pass2.value) { toast('Las contraseñas no coinciden'); return; }
-    Store.setupAdmin(f.user.value, f.pass.value, f.center.value.trim());
-    f.reset();
-    renderCenter();
-    toast('Administrador creado. Ahora da de alta a los trabajadores.');
-    enterAdmin();
-    switchTab('employees');
+    Store.setupAdmin(f.user.value, f.pass.value, f.center.value.trim()).then(function () {
+      f.reset();
+      renderCenter();
+      toast('Administrador creado. Ahora da de alta a los trabajadores.');
+      enterAdmin();
+      switchTab('employees');
+    }, saveFailed);
   });
 
   // ---------- Fichaje ----------
-  var punchType = 'in';
-  $$('#punchForm button[type=submit]').forEach(function (b) {
-    b.addEventListener('click', function () { punchType = b.value; });
-  });
+  var punching = false;
+  var punchIdleTimer = null;
 
+  // Los botones no son de tipo submit: la tecla Intro del teclado no debe elegir Entrada por defecto.
   $('#punchForm').addEventListener('submit', function (e) {
     e.preventDefault();
     var f = e.target;
-    var type = (e.submitter && e.submitter.value) || punchType;
+    if (f.user.value && f.pass.value) {
+      $('#punchMsg').className = 'msg error';
+      $('#punchMsg').textContent = 'Pulsa «Entrada» o «Salida».';
+    }
+  });
+  $$('[data-punch]').forEach(function (b) {
+    b.addEventListener('click', function () { punch(b.dataset.punch); });
+  });
+
+  // Si alguien deja el usuario o la contraseña escritos, se borran solos.
+  $('#punchForm').addEventListener('input', function () {
+    clearTimeout(punchIdleTimer);
+    punchIdleTimer = setTimeout(clearPunchForm, PUNCH_IDLE_MS);
+  });
+
+  function clearPunchForm() {
+    clearTimeout(punchIdleTimer);
+    $('#punchForm').reset();
+  }
+
+  function punch(type) {
+    if (punching) return;
+    var f = $('#punchForm');
     var msg = $('#punchMsg');
     msg.className = 'msg error';
+    if (!f.user.value.trim() || !f.pass.value) {
+      msg.textContent = 'Escribe tu usuario y tu contraseña.';
+      (f.user.value.trim() ? f.pass : f.user).focus();
+      return;
+    }
 
-    if (Date.now() < lockedUntil) {
-      msg.textContent = 'Demasiados intentos. Espera ' + Math.ceil((lockedUntil - Date.now()) / 1000) + ' s.';
+    var key = 'u:' + f.user.value.trim().toLowerCase();
+    var wait = lockedFor(key);
+    if (wait) {
+      msg.textContent = 'Demasiados intentos con este usuario. Espera ' + wait + ' s.';
+      f.pass.value = '';
       return;
     }
 
     var emp = Store.authEmployee(f.user.value, f.pass.value);
     if (!emp) {
-      fails++;
-      if (fails >= MAX_FAILS) { lockedUntil = Date.now() + LOCK_MS; fails = 0; }
+      registerFail(key);
       msg.textContent = 'Usuario o contraseña incorrectos.';
       f.pass.value = '';
       f.pass.focus();
       return;
     }
-    fails = 0;
+    clearFails(key);
 
     var last = Store.lastRecord(emp.id);
     var nowTs = Date.now();
+    var openIn = last && last.type === 'in' && nowTs - last.ts <= Store.maxShiftMs();
     if (last && last.type === type && nowTs - last.ts < 2 * 60 * 1000) {
       msg.textContent = 'Ya registraste una ' + (type === 'in' ? 'entrada' : 'salida') + ' hace un momento (' + fTime(last.ts) + ').';
-      f.pass.value = '';
+      clearPunchForm();
       return;
     }
-    if (type === 'in' && last && last.type === 'in' && nowTs - last.ts < Hours.MAX_OPEN_MS) {
-      if (!confirm('Tienes una entrada abierta desde las ' + fTime(last.ts) + ' sin salida.\n¿Registrar una nueva ENTRADA de todas formas?\n\n(Si te olvidaste de fichar la salida, avisa a administración.)')) return;
+    if (type === 'in' && openIn) {
+      if (!confirm('Tienes una entrada abierta desde las ' + fTime(last.ts) + ' sin salida.\n¿Registrar una nueva ENTRADA de todas formas?\n\n(Si te olvidaste de fichar la salida, avisa a administración.)')) { clearPunchForm(); msg.textContent = ''; return; }
     }
-    if (type === 'out' && (!last || last.type === 'out')) {
-      if (!confirm('No tienes ninguna entrada abierta.\n¿Registrar SALIDA de todas formas?')) return;
+    if (type === 'out' && !openIn) {
+      if (!confirm('No tienes ninguna entrada abierta.\n¿Registrar SALIDA de todas formas?\n\n(Si te olvidaste de fichar la entrada, avisa a administración.)')) { clearPunchForm(); msg.textContent = ''; return; }
     }
 
-    var rec = Store.addRecord(emp.id, type, nowTs);
-    f.reset();
-    msg.textContent = '';
-    showResult(emp, rec);
-  });
+    punching = true;
+    $$('[data-punch]').forEach(function (b) { b.disabled = true; });
+    Store.addRecord(emp.id, type, nowTs).then(function (rec) {
+      clearPunchForm();
+      msg.textContent = '';
+      showResult(emp, rec);
+    }, function (err) {
+      console.error(err);
+      clearPunchForm();
+      msg.textContent = 'NO SE HA GUARDADO EL FICHAJE. Avisa a administración.';
+    }).then(function () {
+      punching = false;
+      $$('[data-punch]').forEach(function (b) { b.disabled = false; });
+    });
+  }
 
   function showResult(emp, rec) {
     var isIn = rec.type === 'in';
@@ -123,7 +218,7 @@
     $('#resultTitle').textContent = (isIn ? 'Entrada' : 'Salida') + ' registrada a las ' + fTime(rec.ts);
     $('#resultWho').textContent = (isIn ? '¡Buen turno, ' : '¡Hasta luego, ') + emp.name.split(' ')[0] + '!';
 
-    var sess = Hours.sessions(Store.records(emp.id), Date.now());
+    var sess = Hours.sessions(Store.records(emp.id), Date.now(), Store.maxShiftMs());
     var nowTs = Date.now();
     ['today', 'week', 'month'].forEach(function (p) {
       var r = Hours.range(p);
@@ -154,18 +249,18 @@
   $('#adminLoginForm').addEventListener('submit', function (e) {
     e.preventDefault();
     var f = e.target;
-    if (Date.now() < lockedUntil) {
-      $('#adminLoginMsg').textContent = 'Demasiados intentos. Espera unos segundos.';
+    var wait = lockedFor('admin');
+    if (wait) {
+      $('#adminLoginMsg').textContent = 'Demasiados intentos. Espera ' + wait + ' s.';
       return;
     }
     if (Store.checkAdmin(f.user.value, f.pass.value)) {
-      fails = 0;
+      clearFails('admin');
       f.reset();
       $('#adminLoginMsg').textContent = '';
       enterAdmin();
     } else {
-      fails++;
-      if (fails >= MAX_FAILS) { lockedUntil = Date.now() + LOCK_MS; fails = 0; }
+      registerFail('admin');
       f.pass.value = '';
       $('#adminLoginMsg').textContent = 'Usuario o contraseña incorrectos.';
     }
@@ -175,6 +270,7 @@
     adminLogged = true;
     show('admin');
     bumpAdminIdle();
+    initRecordFilters();
     switchTab('summary');
   }
 
@@ -219,7 +315,7 @@
     var nowTs = Date.now();
     return Store.employees(true).map(function (emp) {
       var recs = Store.records(emp.id);
-      var sess = Hours.sessions(recs, nowTs);
+      var sess = Hours.sessions(recs, nowTs, Store.maxShiftMs());
       var ms = Hours.workedMs(sess, r.from, r.to, nowTs);
       var days = Object.values(Hours.byDay(sess, r.from, r.to, nowTs)).filter(function (d) { return d.ms > 0; }).length;
       var issues = Hours.issuesIn(sess, r.from, r.to);
@@ -234,18 +330,18 @@
     var html = rows.map(function (row) {
       total += row.ms;
       var state = row.running
-        ? '<span class="pill in">Dentro desde ' + fTime(row.running.start) + '</span>'
+        ? '<span class="pill in live">Dentro desde ' + fTime(row.running.start) + '</span>'
         : '<span class="pill off">Fuera</span>';
       var warn = row.issues.length
         ? '<span class="pill warn">' + row.issues.length + ' fichaje' + (row.issues.length > 1 ? 's' : '') + ' incompleto' + (row.issues.length > 1 ? 's' : '') + '</span>'
         : '';
       return '<tr class="' + (row.emp.active ? '' : 'inactive') + '">' +
-        '<td><b>' + esc(row.emp.name) + '</b>' + (row.emp.role ? '<br><span class="muted small">' + esc(row.emp.role) + '</span>' : '') + '</td>' +
-        '<td>' + state + '</td>' +
-        '<td class="num">' + row.days + '</td>' +
-        '<td class="num"><b>' + Hours.fmt(row.ms) + '</b></td>' +
-        '<td>' + warn + '</td>' +
-        '<td><div class="row-actions"><button class="btn small" data-detail="' + row.emp.id + '">Ver detalle</button></div></td>' +
+        '<td class="c-name">' + person(row.emp.name, row.emp.role) + '</td>' +
+        '<td class="c-state">' + state + '</td>' +
+        '<td class="num c-days" data-label="Días">' + row.days + '</td>' +
+        '<td class="num c-hours"><b>' + Hours.fmt(row.ms) + '</b></td>' +
+        '<td class="c-warn">' + warn + '</td>' +
+        '<td class="c-actions"><div class="row-actions"><button class="btn small" data-detail="' + esc(row.emp.id) + '">Ver detalle</button></div></td>' +
         '</tr>';
     }).join('');
     $('#sumBody').innerHTML = html || '<tr><td colspan="6" class="empty">Aún no hay trabajadores. Añádelos en la pestaña «Trabajadores».</td></tr>';
@@ -263,7 +359,7 @@
     var emp = Store.employee(empId);
     var r = summaryRange();
     var nowTs = Date.now();
-    var sess = Hours.sessions(Store.records(empId), nowTs);
+    var sess = Hours.sessions(Store.records(empId), nowTs, Store.maxShiftMs());
     var days = Hours.byDay(sess, r.from, r.to, nowTs);
     var issues = Hours.issuesIn(sess, r.from, r.to);
     var keys = Object.keys(days).sort().reverse();
@@ -272,7 +368,7 @@
       var d = days[k];
       total += d.ms;
       var parts = d.parts.map(function (p) { return fTime(p[0]) + '–' + (p[2] ? 'ahora' : fTime(p[1])); }).join(', ');
-      return '<tr><td>' + fDate(d.parts[0][0]) + '</td><td>' + parts + '</td><td class="num">' + Hours.fmt(d.ms) + '</td></tr>';
+      return '<tr><td class="c-day">' + fDate(d.parts[0][0]) + '</td><td class="c-parts">' + parts + '</td><td class="num">' + Hours.fmt(d.ms) + '</td></tr>';
     }).join('');
     html += issues.map(function (s) {
       var t = s.start != null ? s.start : s.end;
@@ -293,7 +389,7 @@
   function fillEmployeeSelect(sel, withAll, selected) {
     var opts = withAll ? '<option value="">Todos</option>' : '';
     opts += Store.employees(true).map(function (e) {
-      return '<option value="' + e.id + '"' + (e.id === selected ? ' selected' : '') + '>' + esc(e.name) + (e.active ? '' : ' (baja)') + '</option>';
+      return '<option value="' + esc(e.id) + '"' + (e.id === selected ? ' selected' : '') + '>' + esc(e.name) + (e.active ? '' : ' (baja)') + '</option>';
     }).join('');
     sel.innerHTML = opts;
   }
@@ -312,18 +408,29 @@
     var list = filteredRecords().reverse();
     $('#recBody').innerHTML = list.map(function (r) {
       var emp = Store.employee(r.empId);
+      var type = r.type === 'in' ? 'in' : 'out';
+      var prev = lastEdit(r);
+      var note = esc(r.note) + (prev
+        ? '<span class="muted small history-line">Corregido el ' + esc(fDateTime(prev.at)) + '. Antes: ' + esc(typeLabel(prev.type) + ' ' + fDate(prev.ts) + ' ' + fTime(prev.ts)) + '</span>'
+        : '');
       return '<tr>' +
-        '<td>' + fDate(r.ts) + '</td>' +
-        '<td>' + fTime(r.ts) + '</td>' +
-        '<td>' + esc(emp ? emp.name : '¿?') + '</td>' +
-        '<td><span class="pill ' + r.type + '">' + (r.type === 'in' ? 'Entrada' : 'Salida') + '</span></td>' +
-        '<td>' + (r.manual ? '<span class="pill warn">Manual</span>' : '<span class="muted small">Fichado</span>') + '</td>' +
-        '<td class="small">' + esc(r.note) + '</td>' +
-        '<td><div class="row-actions">' +
-          '<button class="btn small" data-edit-rec="' + r.id + '">Editar</button>' +
-          '<button class="btn small" data-del-rec="' + r.id + '">Borrar</button>' +
+        '<td class="c-date">' + fDate(r.ts) + '</td>' +
+        '<td class="c-time">' + fTime(r.ts) + '</td>' +
+        '<td class="c-emp">' + esc(emp ? emp.name : '¿?') + '</td>' +
+        '<td class="c-type"><span class="pill ' + type + '">' + typeLabel(type) + '</span></td>' +
+        '<td class="c-origin">' + (r.manual ? '<span class="pill warn">Manual</span>' : '<span class="muted small">Fichado</span>') + '</td>' +
+        '<td class="small c-note">' + note + '</td>' +
+        '<td class="c-actions"><div class="row-actions">' +
+          '<button class="btn small" data-edit-rec="' + esc(r.id) + '">Editar</button>' +
+          '<button class="btn small danger-ghost" data-del-rec="' + esc(r.id) + '">Borrar</button>' +
         '</div></td></tr>';
     }).join('') || '<tr><td colspan="7" class="empty">No hay fichajes en este periodo.</td></tr>';
+  }
+
+  function typeLabel(t) { return t === 'in' ? 'Entrada' : 'Salida'; }
+  function lastEdit(r) {
+    var edits = (r.history || []).filter(function (h) { return h.action === 'edit'; });
+    return edits.length ? edits[0] : null; // el valor original, antes de la primera corrección
   }
 
   ['#recEmp', '#recFrom', '#recTo'].forEach(function (s) { $(s).addEventListener('change', renderRecords); });
@@ -332,10 +439,14 @@
     var ed = e.target.closest('[data-edit-rec]');
     var del = e.target.closest('[data-del-rec]');
     if (ed) openRecordDialog(ed.dataset.editRec);
-    if (del && confirm('¿Borrar este fichaje?')) {
-      Store.deleteRecord(del.dataset.delRec);
-      renderRecords();
-      toast('Fichaje borrado');
+    if (del) {
+      var reason = prompt('¿Por qué se borra este fichaje? (queda registrado)');
+      if (reason == null) return;
+      if (!reason.trim()) { toast('Hay que indicar el motivo para borrar'); return; }
+      Store.deleteRecord(del.dataset.delRec, reason.trim()).then(function () {
+        renderRecords();
+        toast('Fichaje borrado');
+      }, saveFailed);
     }
   });
 
@@ -362,10 +473,13 @@
     var t = f.time.value.split(':').map(Number);
     var ts = new Date(p[0], p[1] - 1, p[2], t[0], t[1]).getTime();
     var data = { empId: f.empId.value, type: f.type.value, ts: ts, note: f.note.value.trim() };
-    if (editingRecordId) Store.updateRecord(editingRecordId, data);
-    else Store.addRecord(data.empId, data.type, data.ts, { manual: true, note: data.note });
-    toast('Fichaje guardado');
-    renderAdmin();
+    var saving = editingRecordId
+      ? Store.updateRecord(editingRecordId, data)
+      : Store.addRecord(data.empId, data.type, data.ts, { manual: true, note: data.note });
+    saving.then(function () {
+      toast('Fichaje guardado');
+      renderAdmin();
+    }, saveFailed);
   });
 
   // ---------- Panel: trabajadores ----------
@@ -374,11 +488,11 @@
     var list = Store.employees(showInactive);
     $('#empBody').innerHTML = list.map(function (e) {
       return '<tr class="' + (e.active ? '' : 'inactive') + '">' +
-        '<td><b>' + esc(e.name) + '</b></td>' +
-        '<td>' + esc(e.username) + '</td>' +
-        '<td>' + esc(e.role) + '</td>' +
-        '<td>' + (e.active ? '<span class="pill in">Activo</span>' : '<span class="pill off">Baja</span>') + '</td>' +
-        '<td><div class="row-actions"><button class="btn small" data-edit-emp="' + e.id + '">Editar</button></div></td>' +
+        '<td class="c-name">' + person(e.name) + '</td>' +
+        '<td class="c-user"><span class="username">' + esc(e.username) + '</span></td>' +
+        '<td class="c-role">' + esc(e.role) + '</td>' +
+        '<td class="c-state">' + (e.active ? '<span class="pill in">Activo</span>' : '<span class="pill off">Baja</span>') + '</td>' +
+        '<td class="c-actions"><div class="row-actions"><button class="btn small" data-edit-emp="' + esc(e.id) + '">Editar</button></div></td>' +
         '</tr>';
     }).join('') || '<tr><td colspan="5" class="empty">No hay trabajadores. Pulsa «+ Nuevo trabajador».</td></tr>';
   }
@@ -422,9 +536,10 @@
       role: f.role.value,
       pass: f.pass.value,
       active: f.active.checked
-    });
-    toast('Trabajador guardado');
-    renderAdmin();
+    }).then(function () {
+      toast('Trabajador guardado');
+      renderAdmin();
+    }, saveFailed);
   });
 
   // ---------- Panel: datos ----------
@@ -433,18 +548,31 @@
     return Hours.dateKey(d) + '_' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
   }
 
-  // En el iPad abre el menú de compartir (AirDrop, Archivos, correo…). Si no, descarga el archivo.
+  var isStandalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  var isTouch = navigator.maxTouchPoints > 1;
+
+  // En el iPad abre el menú de compartir (AirDrop, Archivos, correo…). En el ordenador descarga el archivo.
+  // Devuelve una promesa que indica si el archivo se ha enviado o descargado.
   function deliverFile(name, content, mime) {
     var blob = new Blob([content], { type: mime });
     var file;
     try { file = new File([blob], name, { type: mime }); } catch (e) { file = null; }
-    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-      return navigator.share({ files: [file], title: name }).catch(function (err) {
-        if (err && err.name !== 'AbortError') download(blob, name);
+    var canShare = file && navigator.canShare && navigator.canShare({ files: [file] });
+    if (canShare && (isTouch || isStandalone)) {
+      return navigator.share({ files: [file], title: name }).then(function () { return true; }, function (err) {
+        if (err && err.name === 'AbortError') return false;
+        // En la app instalada del iPad, una descarga puede dejar la app bloqueada: mejor avisar.
+        if (isStandalone) { alert('No se ha podido compartir el archivo: ' + err.message); return false; }
+        download(blob, name);
+        return true;
       });
     }
+    if (isStandalone) {
+      alert('Este dispositivo no permite compartir archivos desde la app. Actualiza el sistema del iPad.');
+      return Promise.resolve(false);
+    }
     download(blob, name);
-    return Promise.resolve();
+    return Promise.resolve(true);
   }
 
   function download(blob, name) {
@@ -463,17 +591,21 @@
     return '﻿' + rows.map(function (r) {
       return r.map(function (v) {
         v = String(v == null ? '' : v);
+        if (/^[=+\-@\t\r]/.test(v)) v = "'" + v; // evita que Excel lo interprete como fórmula
         return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
       }).join(';');
     }).join('\r\n');
   }
 
   function recordsCsv(list) {
-    var rows = [['Trabajador', 'Usuario', 'Fecha', 'Hora', 'Tipo', 'Origen', 'Nota']];
+    var rows = [['Trabajador', 'Usuario', 'Fecha', 'Hora', 'Tipo', 'Origen', 'Nota', 'Valor original (si se corrigió)', 'Fecha de la corrección']];
     list.forEach(function (r) {
       var emp = Store.employee(r.empId) || {};
       var d = new Date(r.ts);
-      rows.push([emp.name, emp.username, d.toLocaleDateString('es-ES'), fTime(r.ts), r.type === 'in' ? 'Entrada' : 'Salida', r.manual ? 'Manual' : 'Fichado', r.note]);
+      var prev = lastEdit(r);
+      rows.push([emp.name, emp.username, d.toLocaleDateString('es-ES'), fTime(r.ts), typeLabel(r.type), r.manual ? 'Manual' : 'Fichado', r.note,
+        prev ? typeLabel(prev.type) + ' ' + new Date(prev.ts).toLocaleDateString('es-ES') + ' ' + fTime(prev.ts) : '',
+        prev ? fDateTime(prev.at) : '']);
     });
     return csv(rows);
   }
@@ -494,11 +626,14 @@
     f.user.value = Store.db.admin ? Store.db.admin.user : '';
     f.pass.value = '';
     f.current.value = '';
+    f.maxShift.value = Math.round(Store.maxShiftMs() / 3600000);
     var lb = Store.db.meta.lastBackup;
     $('#lastBackup').textContent = lb ? 'Última copia enviada: ' + fDateTime(lb) : 'Todavía no se ha enviado ninguna copia desde este dispositivo.';
 
     var info = Store.db.records.filter(function (r) { return !r.deleted; }).length + ' fichajes y ' +
-      Store.employees(true).length + ' trabajadores guardados en este dispositivo.';
+      Store.employees(true).length + ' trabajadores guardados en este dispositivo (' +
+      (Store.dataSize() / 1024 / 1024).toFixed(1).replace('.', ',') + ' MB).';
+    if (!Store.usingIndexedDb) info += ' AVISO: se está usando el almacenamiento pequeño del navegador; envía copias a menudo.';
     $('#storageInfo').textContent = info;
     if (navigator.storage && navigator.storage.persisted) {
       navigator.storage.persisted().then(function (p) {
@@ -513,11 +648,13 @@
     e.preventDefault();
     var f = e.target;
     if (!Store.checkAdmin(Store.db.admin.user, f.current.value)) { toast('La contraseña actual no es correcta'); return; }
-    Store.setCenterName(f.center.value.trim());
-    Store.updateAdmin(f.user.value, f.pass.value);
-    renderCenter();
-    renderData();
-    toast('Ajustes guardados');
+    Store.setSettings({ centerName: f.center.value.trim(), maxShiftHours: Number(f.maxShift.value) || 16 })
+      .then(function () { return Store.updateAdmin(f.user.value, f.pass.value); })
+      .then(function () {
+        renderCenter();
+        renderData();
+        toast('Ajustes guardados');
+      }, saveFailed);
   });
 
   var importFromSetup = false;
@@ -526,9 +663,14 @@
     e.target.value = '';
     if (!file) return;
     file.text().then(function (text) {
-      var stats = Store.importJson(text);
+      return Store.importJson(text);
+    }).then(function (stats) {
       renderCenter();
-      toast('Copia importada: ' + stats.records + ' fichajes y ' + stats.employees + ' trabajadores nuevos o actualizados');
+      var msg = 'Copia importada: ' + stats.records + ' fichajes y ' + stats.employees + ' trabajadores nuevos o actualizados.';
+      if (stats.skipped) msg += '\n' + stats.skipped + ' elementos dañados se han ignorado.';
+      if (stats.duplicateUsers.length) msg += '\nAVISO: hay usuarios repetidos (' + stats.duplicateUsers.join(', ') + '). Revisa la pestaña «Trabajadores».';
+      if (stats.adminChanged) msg += '\nEl usuario o la contraseña de administración se han actualizado con los de la copia.';
+      if (stats.skipped || stats.duplicateUsers.length || stats.adminChanged) alert(msg); else toast(msg);
       if (importFromSetup) {
         importFromSetup = false;
         show(Store.isConfigured() ? 'admin-login' : 'setup');
@@ -552,18 +694,21 @@
     'export-records-csv': function () { deliverFile('fichajes_' + stamp() + '.csv', recordsCsv(filteredRecords()), 'text/csv'); },
     'share-csv': function () { deliverFile('fichajes_' + stamp() + '.csv', recordsCsv(Store.records()), 'text/csv'); },
     'share-backup': function () {
-      deliverFile('copia_fichajes_' + stamp() + '.json', Store.exportJson(), 'application/json').then(renderData);
+      deliverFile('copia_fichajes_' + stamp() + '.json', Store.exportJson(), 'application/json').then(function (sent) {
+        if (sent) Store.markBackup().then(renderData, saveFailed);
+      });
     },
     'import': function () { importFromSetup = false; $('#importFile').click(); },
     'import-setup': function () { importFromSetup = true; $('#importFile').click(); },
     'wipe': function () {
       if (!confirm('¿Seguro que quieres borrar TODOS los datos de este dispositivo?')) return;
       if (prompt('Escribe BORRAR para confirmar') !== 'BORRAR') return;
-      Store.wipe();
-      adminLogged = false;
-      renderCenter();
-      show('setup');
-      toast('Datos borrados');
+      Store.wipe().then(function () {
+        adminLogged = false;
+        renderCenter();
+        show('setup');
+        toast('Datos borrados');
+      }, saveFailed);
     }
   };
 
@@ -576,18 +721,39 @@
   });
 
   // ---------- Arranque ----------
-  Store.load();
-  Store.requestPersistence();
-  renderCenter();
-  initRecordFilters();
   tickClock();
   setInterval(tickClock, 10000);
   setInterval(function () { if (adminLogged && currentTab === 'summary') renderSummary(); }, 60000);
-  // Si otra pestaña modifica los datos (p. ej. en el ordenador), recargarlos.
-  window.addEventListener('storage', function () { Store.load(); renderAdmin(); });
-  show(Store.isConfigured() ? 'kiosk' : 'setup');
+
+  Store.load().then(function () {
+    Store.requestPersistence();
+    renderCenter();
+    initRecordFilters();
+    show(Store.isConfigured() ? 'kiosk' : 'setup');
+    if (Store.loadError) alert(Store.loadError);
+    // Si otra pestaña modifica los datos (p. ej. en el ordenador), recargarlos.
+    Store.onExternalChange(function () { renderCenter(); renderAdmin(); });
+  }, function (err) {
+    console.error(err);
+    alert('No se han podido cargar los datos: ' + err.message);
+  });
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('sw.js').catch(function (err) { console.warn('SW', err); });
+    navigator.serviceWorker.register('sw.js').then(function (reg) {
+      // El iPad nunca se cierra: buscar actualizaciones cada hora.
+      setInterval(function () { reg.update().catch(function () {}); }, 60 * 60 * 1000);
+    }).catch(function (err) { console.warn('SW', err); });
+
+    // Cuando llega una versión nueva, recargar en cuanto la pantalla de fichaje esté libre.
+    var hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!hadController) { hadController = true; return; }
+      var tryReload = function () {
+        var f = $('#punchForm');
+        if (!$('#view-kiosk').hidden && !f.user.value && !f.pass.value && !$('dialog[open]')) location.reload();
+        else setTimeout(tryReload, 30000);
+      };
+      tryReload();
+    });
   }
 })();

@@ -50,7 +50,11 @@ la hora y le muestra sus horas de hoy, de la semana y del mes. A los pocos segun
 pantalla de fichaje.
 
 - Si ficha dos veces lo mismo seguido, la app lo avisa.
-- Tras 5 contraseñas erróneas, el fichaje se bloquea 30 segundos.
+- Si confirma una entrada/salida "rara" (por ejemplo, salida sin entrada), la app pregunta antes.
+- Tras 5 contraseñas erróneas, **ese usuario** queda bloqueado 30 segundos (los demás pueden seguir fichando).
+- Si alguien deja su usuario o contraseña escritos, se borran solos a los 30 segundos.
+- Si por cualquier motivo el fichaje no se puede guardar, la pantalla lo dice claramente
+  ("NO SE HA GUARDADO EL FICHAJE") en vez de dar un falso OK.
 
 ## 5. Panel de administración
 
@@ -59,9 +63,14 @@ Botón **Administración** (abajo) → usuario y contraseña de administrador.
 | Pestaña | Qué hace |
 |---|---|
 | **Horas** | Horas de cada trabajador en el periodo elegido, quién está dentro ahora, avisos de fichajes incompletos y detalle por días. Exportar a Excel. |
-| **Fichajes** | Todos los fichajes; añadir uno manual (p. ej. si alguien olvidó fichar), editar o borrar. Los manuales quedan marcados como "Manual" con su motivo. |
+| **Fichajes** | Todos los fichajes; añadir uno manual (p. ej. si alguien olvidó fichar), editar o borrar. Las correcciones quedan marcadas como "Manual" con su motivo y **se conserva el valor original** (también en el Excel). Para borrar hay que indicar el motivo, y el fichaje borrado se conserva en el historial. |
 | **Trabajadores** | Altas, cambios de contraseña y bajas. |
-| **Datos y ordenador** | Enviar copia al ordenador, importar copias, ajustes y contraseña del administrador. |
+| **Datos y ordenador** | Enviar copia al ordenador, importar copias, ajustes (nombre del centro, contraseña del administrador, duración máxima de un turno). |
+
+**Turnos y salidas olvidadas:** un turno de noche (p. ej. 22:00–08:00) cuenta como un solo día, el día
+en que empieza. Si una entrada queda abierta más de la duración máxima de turno (16 h por defecto,
+configurable), se considera una salida olvidada: no suma horas y aparece como "fichaje incompleto"
+para que la administración lo corrija.
 
 La sesión de administración se cierra sola tras 5 minutos sin tocar la pantalla.
 
@@ -100,6 +109,8 @@ Para probarla en local: `python3 -m http.server 8000` y abrir `http://localhost:
 ## Seguridad y notas
 
 - Las contraseñas no se guardan en claro: se guarda un hash con sal.
+- Los datos se guardan en la base de datos interna del navegador (IndexedDB), con capacidad para años
+  de fichajes. Los datos de versiones anteriores se trasladan solos la primera vez.
 - Los datos solo están en el dispositivo y en las copias que envíes. Guarda las copias en un lugar
   seguro: contienen datos personales de los trabajadores (RGPD).
 - Si cambias archivos de la app, sube la versión de `CACHE` en `sw.js` para que el iPad la actualice.

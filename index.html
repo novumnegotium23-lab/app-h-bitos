@@ -4,7 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Fichaje Residencia</title>
-  <meta name="theme-color" content="#1f6f5c">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f2f4f0" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1513" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -15,22 +17,58 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Iconos (SVG en línea, funcionan sin conexión) -->
+  <svg class="icon-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-login" viewBox="0 0 24 24"><path d="M14 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M9 16.5 13.5 12 9 7.5"/><path d="M13.5 12H3.5"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M10 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M15.5 16.5 20 12l-4.5-4.5"/><path d="M20 12H9.5"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10.5" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/><path d="M12 15v2"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3.5 3.5l17 17"/><path d="M10.6 5.6A9.6 9.6 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a16 16 0 0 1-3 3.8"/><path d="M6.6 6.6C4 8.3 2.5 12 2.5 12S6 18.5 12 18.5c1.8 0 3.4-.6 4.7-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="8" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="14.5" width="7" height="6" rx="1.5"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11.5M9 12h11.5M9 18h11.5"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="3"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M15.5 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M21.5 20a6.5 6.5 0 0 0-3.8-5.9"/></symbol>
+    <symbol id="i-laptop" viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="11" rx="2"/><path d="M2 19.5h20"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3.5v11"/><path d="M7.5 10 12 14.5 16.5 10"/><path d="M4.5 20.5h15"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 20.5v-11"/><path d="M7.5 14 12 9.5l4.5 4.5"/><path d="M4.5 3.5h15"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M16 6.5 12 2.5 8 6.5"/><path d="M12 2.5v12.5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6.5 9.5 17 4 11.5"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4 2.2 18a2 2 0 0 0 1.7 3h16.2a2 2 0 0 0 1.7-3L13.7 4a2 2 0 0 0-3.4 0Z"/><path d="M12 9.5v4"/><path d="M12 17.2h.01"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></symbol>
+    <symbol id="i-storage" viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="7.5" ry="3"/><path d="M4.5 5.5v13c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-13"/><path d="M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.5s-8.5-5-8.5-11A4.8 4.8 0 0 1 12 6.6a4.8 4.8 0 0 1 8.5 2.9c0 6-8.5 11-8.5 11Z"/></symbol>
+  </svg>
+
   <header class="topbar">
     <div class="brand">
-      <img src="icons/icon-192.png" alt="" width="36" height="36">
-      <span id="centerName">Residencia</span>
-    </div>
-    <div class="clock">
-      <div id="clockTime">--:--</div>
-      <div id="clockDate" class="muted"></div>
+      <svg class="logo" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
+        <defs>
+          <linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#2e9278"/>
+            <stop offset="1" stop-color="#155446"/>
+          </linearGradient>
+        </defs>
+        <rect width="40" height="40" rx="11" fill="url(#logoGrad)"/>
+        <circle cx="20" cy="20" r="11" fill="none" stroke="#fff" stroke-width="2.6"/>
+        <path d="M20 20 15.6 16.2M20 20l6.2-4.6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+        <circle cx="20" cy="20" r="2" fill="#f4b860"/>
+      </svg>
+      <div class="brand-text">
+        <span id="centerName">Residencia</span>
+        <span class="brand-sub">Control horario</span>
+      </div>
     </div>
   </header>
 
   <main>
     <!-- Primera configuración -->
     <section id="view-setup" class="view card narrow" hidden>
+      <div class="card-icon"><svg class="ic"><use href="#i-heart"/></svg></div>
       <h1>Configuración inicial</h1>
-      <p class="muted">Crea la cuenta de administrador. Con ella podrás dar de alta a los trabajadores y ver todas las horas.</p>
+      <p class="muted intro">Crea la cuenta de administrador. Con ella podrás dar de alta a los trabajadores y ver todas las horas.</p>
       <form id="setupForm" autocomplete="off">
         <label>Nombre del centro
           <input name="center" required placeholder="Residencia ..." autocomplete="off">
@@ -46,78 +84,120 @@
         </label>
         <button class="btn primary big" type="submit">Crear administrador</button>
       </form>
-      <hr>
-      <p class="muted">¿Ya tienes una copia de los datos (por ejemplo, desde el iPad)?</p>
-      <button class="btn" type="button" data-action="import-setup">Importar copia de seguridad</button>
+      <div class="divider"><span>o</span></div>
+      <p class="muted center-text">¿Ya tienes una copia de los datos (por ejemplo, desde el iPad)?</p>
+      <button class="btn block" type="button" data-action="import-setup"><svg class="ic"><use href="#i-upload"/></svg><span>Importar copia de seguridad</span></button>
     </section>
 
     <!-- Pantalla de fichaje -->
     <section id="view-kiosk" class="view" hidden>
-      <div class="card narrow kiosk">
-        <h1>Fichar</h1>
-        <form id="punchForm" autocomplete="off">
-          <label>Usuario
-            <input name="user" required autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="off">
-          </label>
-          <label>Contraseña
-            <input name="pass" type="password" required autocomplete="off">
-          </label>
-          <div class="punch-buttons">
-            <button class="btn in big" type="submit" value="in">Entrada</button>
-            <button class="btn out big" type="submit" value="out">Salida</button>
-          </div>
-        </form>
-        <p id="punchMsg" class="msg" role="status" aria-live="polite"></p>
+      <div class="kiosk-layout">
+        <div class="kiosk-hero">
+          <p class="eyebrow"><svg class="ic"><use href="#i-clock"/></svg>Hora actual</p>
+          <div id="clockTime" class="clock-time">--:--</div>
+          <div id="clockDate" class="clock-date"></div>
+          <p class="kiosk-hint">Escribe tu usuario y contraseña y pulsa <b class="t-in">Entrada</b> al llegar o <b class="t-out">Salida</b> al irte.</p>
+        </div>
+
+        <div class="card kiosk">
+          <h1>Fichar</h1>
+          <form id="punchForm" autocomplete="off">
+            <label class="field">
+              <span class="field-label">Usuario</span>
+              <span class="input-icon">
+                <svg class="ic"><use href="#i-user"/></svg>
+                <input name="user" required autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="off">
+              </span>
+            </label>
+            <label class="field">
+              <span class="field-label">Contraseña</span>
+              <span class="input-icon has-toggle">
+                <svg class="ic"><use href="#i-lock"/></svg>
+                <input name="pass" type="password" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+                <button class="pass-toggle" type="button" aria-label="Mostrar contraseña" aria-pressed="false">
+                  <svg class="ic eye"><use href="#i-eye"/></svg>
+                  <svg class="ic eye-off"><use href="#i-eye-off"/></svg>
+                </button>
+              </span>
+            </label>
+            <div class="punch-buttons">
+              <button class="btn in big" type="button" value="in" data-punch="in"><svg class="ic"><use href="#i-login"/></svg><span>Entrada</span></button>
+              <button class="btn out big" type="button" value="out" data-punch="out"><svg class="ic"><use href="#i-logout"/></svg><span>Salida</span></button>
+            </div>
+          </form>
+          <p id="punchMsg" class="msg" role="status" aria-live="polite"></p>
+        </div>
       </div>
       <div class="kiosk-foot">
-        <button class="btn link" type="button" data-action="go-admin-login">Administración</button>
+        <button class="btn link subtle" type="button" data-action="go-admin-login"><svg class="ic"><use href="#i-panel"/></svg><span>Administración</span></button>
       </div>
     </section>
 
     <!-- Resultado del fichaje -->
-    <section id="view-result" class="view card narrow" hidden>
-      <div id="resultIcon" class="result-icon"></div>
-      <h1 id="resultTitle"></h1>
-      <p id="resultWho" class="lead"></p>
-      <div class="stats">
-        <div><span class="muted">Hoy</span><strong id="resToday">0:00</strong></div>
-        <div><span class="muted">Esta semana</span><strong id="resWeek">0:00</strong></div>
-        <div><span class="muted">Este mes</span><strong id="resMonth">0:00</strong></div>
+    <section id="view-result" class="view" hidden>
+      <div class="card narrow result-card">
+        <div id="resultIcon" class="result-icon"></div>
+        <svg class="result-check" viewBox="0 0 52 52" aria-hidden="true"><path d="M15 27.5l7.5 7.5L38 19"/></svg>
+        <h1 id="resultTitle"></h1>
+        <p id="resultWho" class="lead"></p>
+        <div class="stats">
+          <div><span class="muted">Hoy</span><strong id="resToday">0:00</strong></div>
+          <div><span class="muted">Esta semana</span><strong id="resWeek">0:00</strong></div>
+          <div><span class="muted">Este mes</span><strong id="resMonth">0:00</strong></div>
+        </div>
+        <button class="btn primary big" type="button" data-action="back-kiosk"><svg class="ic"><use href="#i-check"/></svg><span>Listo</span></button>
+        <div class="result-progress" aria-hidden="true"><span></span></div>
+        <p class="muted small countdown">Volviendo a la pantalla de fichaje en <span id="resCountdown">8</span> s…</p>
       </div>
-      <button class="btn primary big" type="button" data-action="back-kiosk">Listo</button>
-      <p class="muted small">Volviendo a la pantalla de fichaje en <span id="resCountdown">8</span> s…</p>
     </section>
 
     <!-- Login administrador -->
     <section id="view-admin-login" class="view card narrow" hidden>
+      <div class="card-icon"><svg class="ic"><use href="#i-lock"/></svg></div>
       <h1>Administración</h1>
+      <p class="muted intro">Acceso solo para la dirección del centro.</p>
       <form id="adminLoginForm" autocomplete="off">
-        <label>Usuario
-          <input name="user" required autocapitalize="none" autocomplete="off">
+        <label class="field">
+          <span class="field-label">Usuario</span>
+          <span class="input-icon">
+            <svg class="ic"><use href="#i-user"/></svg>
+            <input name="user" required autocapitalize="none" autocomplete="off">
+          </span>
         </label>
-        <label>Contraseña
-          <input name="pass" type="password" required autocomplete="off">
+        <label class="field">
+          <span class="field-label">Contraseña</span>
+          <span class="input-icon has-toggle">
+            <svg class="ic"><use href="#i-lock"/></svg>
+            <input name="pass" type="password" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+            <button class="pass-toggle" type="button" aria-label="Mostrar contraseña" aria-pressed="false">
+              <svg class="ic eye"><use href="#i-eye"/></svg>
+              <svg class="ic eye-off"><use href="#i-eye-off"/></svg>
+            </button>
+          </span>
         </label>
         <button class="btn primary big" type="submit">Entrar</button>
       </form>
       <p id="adminLoginMsg" class="msg error" role="status"></p>
-      <button class="btn link" type="button" data-action="back-kiosk">← Volver a fichar</button>
+      <div class="center-text back-row">
+        <button class="btn link" type="button" data-action="back-kiosk"><svg class="ic"><use href="#i-back"/></svg><span>Volver a fichar</span></button>
+      </div>
     </section>
 
     <!-- Panel administrador -->
     <section id="view-admin" class="view" hidden>
       <div class="admin-head">
-        <nav class="tabs" role="tablist">
-          <button class="tab active" data-tab="summary">Horas</button>
-          <button class="tab" data-tab="records">Fichajes</button>
-          <button class="tab" data-tab="employees">Trabajadores</button>
-          <button class="tab" data-tab="data">Datos y ordenador</button>
+        <h1 class="admin-title">Administración</h1>
+        <nav class="tabs" role="tablist" aria-label="Secciones">
+          <button class="tab active" data-tab="summary"><svg class="ic"><use href="#i-clock"/></svg><span>Horas</span></button>
+          <button class="tab" data-tab="records"><svg class="ic"><use href="#i-list"/></svg><span>Fichajes</span></button>
+          <button class="tab" data-tab="employees"><svg class="ic"><use href="#i-users"/></svg><span>Trabajadores</span></button>
+          <button class="tab" data-tab="data"><svg class="ic"><use href="#i-laptop"/></svg><span>Datos y ordenador</span></button>
         </nav>
-        <button class="btn" type="button" data-action="logout">Salir</button>
+        <button class="btn logout" type="button" data-action="logout"><svg class="ic"><use href="#i-logout"/></svg><span>Salir</span></button>
       </div>
 
       <!-- Horas -->
-      <div class="tabpanel card" data-panel="summary">
+      <div class="tabpanel card flush" data-panel="summary">
         <div class="filters">
           <label>Periodo
             <select id="sumPeriod">
@@ -132,12 +212,14 @@
           </label>
           <label class="custom-range">Desde <input type="date" id="sumFrom"></label>
           <label class="custom-range">Hasta <input type="date" id="sumTo"></label>
-          <button class="btn" type="button" data-action="export-summary-csv">Exportar a Excel (CSV)</button>
+          <div class="toolbar-actions">
+            <button class="btn" type="button" data-action="export-summary-csv"><svg class="ic"><use href="#i-download"/></svg><span>Exportar a Excel (CSV)</span></button>
+          </div>
         </div>
         <div class="table-wrap">
-          <table>
+          <table class="cards-on-tablet cards-on-phone t-summary">
             <thead>
-              <tr><th>Trabajador</th><th>Estado</th><th class="num">Días</th><th class="num">Horas</th><th>Avisos</th><th></th></tr>
+              <tr><th>Trabajador</th><th>Estado</th><th class="num">Días</th><th class="num">Horas</th><th>Avisos</th><th><span class="sr-only">Acciones</span></th></tr>
             </thead>
             <tbody id="sumBody"></tbody>
             <tfoot><tr><th colspan="3">Total</th><th class="num" id="sumTotal">0:00</th><th colspan="2"></th></tr></tfoot>
@@ -146,20 +228,22 @@
       </div>
 
       <!-- Fichajes -->
-      <div class="tabpanel card" data-panel="records" hidden>
+      <div class="tabpanel card flush" data-panel="records" hidden>
         <div class="filters">
           <label>Trabajador
             <select id="recEmp"></select>
           </label>
           <label>Desde <input type="date" id="recFrom"></label>
           <label>Hasta <input type="date" id="recTo"></label>
-          <button class="btn primary" type="button" data-action="new-record">+ Añadir fichaje manual</button>
-          <button class="btn" type="button" data-action="export-records-csv">Exportar a Excel (CSV)</button>
+          <div class="toolbar-actions">
+            <button class="btn primary" type="button" data-action="new-record"><svg class="ic"><use href="#i-plus"/></svg><span>Añadir fichaje manual</span></button>
+            <button class="btn" type="button" data-action="export-records-csv"><svg class="ic"><use href="#i-download"/></svg><span>Exportar a Excel (CSV)</span></button>
+          </div>
         </div>
         <div class="table-wrap">
-          <table>
+          <table class="cards-on-tablet cards-on-phone t-records">
             <thead>
-              <tr><th>Fecha</th><th>Hora</th><th>Trabajador</th><th>Tipo</th><th>Origen</th><th>Nota</th><th></th></tr>
+              <tr><th>Fecha</th><th>Hora</th><th>Trabajador</th><th>Tipo</th><th>Origen</th><th>Nota</th><th><span class="sr-only">Acciones</span></th></tr>
             </thead>
             <tbody id="recBody"></tbody>
           </table>
@@ -167,65 +251,85 @@
       </div>
 
       <!-- Trabajadores -->
-      <div class="tabpanel card" data-panel="employees" hidden>
+      <div class="tabpanel card flush" data-panel="employees" hidden>
         <div class="filters">
-          <button class="btn primary" type="button" data-action="new-employee">+ Nuevo trabajador</button>
-          <label class="inline"><input type="checkbox" id="empShowInactive"> Mostrar dados de baja</label>
+          <button class="btn primary" type="button" data-action="new-employee"><svg class="ic"><use href="#i-plus"/></svg><span>Nuevo trabajador</span></button>
+          <label class="inline switch-label"><input type="checkbox" class="switch" id="empShowInactive"> Mostrar dados de baja</label>
         </div>
         <div class="table-wrap">
-          <table>
-            <thead><tr><th>Nombre</th><th>Usuario</th><th>Puesto</th><th>Estado</th><th></th></tr></thead>
+          <table class="cards-on-phone t-employees">
+            <thead><tr><th>Nombre</th><th>Usuario</th><th>Puesto</th><th>Estado</th><th><span class="sr-only">Acciones</span></th></tr></thead>
             <tbody id="empBody"></tbody>
           </table>
         </div>
       </div>
 
       <!-- Datos -->
-      <div class="tabpanel card" data-panel="data" hidden>
-        <h2>Pasar los datos al ordenador</h2>
-        <p>Los fichajes se guardan en la memoria de este dispositivo. Para pasarlos al ordenador por wifi:</p>
-        <ol>
-          <li>Pulsa <b>Enviar copia</b>. En el iPad se abrirá el menú de compartir: elige <b>AirDrop</b> (Mac) o guárdalo en <b>Archivos / iCloud / OneDrive / Google Drive</b> para recogerlo desde un PC con Windows.</li>
-          <li>En el ordenador, abre esta misma aplicación en el navegador, entra como administrador y pulsa <b>Importar copia</b>. Los datos se combinan sin duplicarse.</li>
-          <li>Si solo quieres las horas en Excel, usa <b>Enviar Excel (CSV)</b>.</li>
-        </ol>
-        <div class="actions">
-          <button class="btn primary" type="button" data-action="share-backup">Enviar copia (JSON)</button>
-          <button class="btn" type="button" data-action="share-csv">Enviar Excel (CSV)</button>
-          <button class="btn" type="button" data-action="import">Importar copia</button>
-        </div>
-        <p class="muted small" id="lastBackup"></p>
+      <div class="tabpanel data-grid" data-panel="data" hidden>
+        <section class="card data-transfer">
+          <div class="section-head">
+            <span class="section-icon"><svg class="ic"><use href="#i-share"/></svg></span>
+            <h2>Pasar los datos al ordenador</h2>
+          </div>
+          <p>Los fichajes se guardan en la memoria de este dispositivo. Para pasarlos al ordenador por wifi:</p>
+          <ol class="steps">
+            <li>Pulsa <b>Enviar copia</b>. En el iPad se abrirá el menú de compartir: elige <b>AirDrop</b> (Mac) o guárdalo en <b>Archivos / iCloud / OneDrive / Google Drive</b> para recogerlo desde un PC con Windows.</li>
+            <li>En el ordenador, abre esta misma aplicación en el navegador, entra como administrador y pulsa <b>Importar copia</b>. Los datos se combinan sin duplicarse.</li>
+            <li>Si solo quieres las horas en Excel, usa <b>Enviar Excel (CSV)</b>.</li>
+          </ol>
+          <div class="actions">
+            <button class="btn primary" type="button" data-action="share-backup"><svg class="ic"><use href="#i-share"/></svg><span>Enviar copia (JSON)</span></button>
+            <button class="btn" type="button" data-action="share-csv"><svg class="ic"><use href="#i-download"/></svg><span>Enviar Excel (CSV)</span></button>
+            <button class="btn" type="button" data-action="import"><svg class="ic"><use href="#i-upload"/></svg><span>Importar copia</span></button>
+          </div>
+          <p class="muted small note-line" id="lastBackup"></p>
+        </section>
 
-        <h2>Ajustes</h2>
-        <form id="settingsForm" class="grid2" autocomplete="off">
-          <label>Nombre del centro <input name="center" required></label>
-          <label>Usuario administrador <input name="user" required autocapitalize="none"></label>
-          <label>Nueva contraseña admin (dejar vacío para no cambiar) <input name="pass" type="password" minlength="6" autocomplete="new-password"></label>
-          <label>Contraseña admin actual (obligatoria para guardar) <input name="current" type="password" required autocomplete="current-password"></label>
-          <div><button class="btn primary" type="submit">Guardar ajustes</button></div>
-        </form>
+        <section class="card data-settings">
+          <div class="section-head">
+            <span class="section-icon"><svg class="ic"><use href="#i-settings"/></svg></span>
+            <h2>Ajustes</h2>
+          </div>
+          <form id="settingsForm" class="settings-form" autocomplete="off">
+            <label>Nombre del centro <input name="center" required></label>
+            <label>Usuario administrador <input name="user" required autocapitalize="none"></label>
+            <label>Nueva contraseña admin (dejar vacío para no cambiar) <input name="pass" type="password" minlength="6" autocomplete="new-password"></label>
+            <label>Duración máxima de un turno, en horas (una entrada más antigua sin salida se considera olvidada) <input name="maxShift" type="number" min="8" max="36" step="1" inputmode="numeric" required></label>
+            <label>Contraseña admin actual (obligatoria para guardar) <input name="current" type="password" required autocomplete="current-password"></label>
+            <div><button class="btn primary" type="submit"><svg class="ic"><use href="#i-check"/></svg><span>Guardar ajustes</span></button></div>
+          </form>
+        </section>
 
-        <h2>Almacenamiento</h2>
-        <p class="muted small" id="storageInfo"></p>
-        <details>
-          <summary>Zona peligrosa</summary>
-          <p>Borra todos los datos de <b>este dispositivo</b>. Haz antes una copia.</p>
-          <button class="btn danger" type="button" data-action="wipe">Borrar todos los datos</button>
-        </details>
+        <section class="card data-storage">
+          <div class="section-head">
+            <span class="section-icon"><svg class="ic"><use href="#i-storage"/></svg></span>
+            <h2>Almacenamiento</h2>
+          </div>
+          <p class="muted small" id="storageInfo"></p>
+          <details class="danger-zone">
+            <summary><svg class="ic"><use href="#i-alert"/></svg><span>Zona peligrosa</span></summary>
+            <div class="danger-body">
+              <p>Borra todos los datos de <b>este dispositivo</b>. Haz antes una copia.</p>
+              <button class="btn danger" type="button" data-action="wipe">Borrar todos los datos</button>
+            </div>
+          </details>
+        </section>
       </div>
     </section>
   </main>
 
   <!-- Diálogos -->
-  <dialog id="dlgEmployee">
+  <dialog id="dlgEmployee" aria-labelledby="dlgEmployeeTitle">
     <form method="dialog" id="employeeForm" autocomplete="off">
-      <h2 id="dlgEmployeeTitle">Trabajador</h2>
-      <label>Nombre y apellidos <input name="name" required></label>
-      <label>Usuario (para fichar) <input name="username" required autocapitalize="none" autocorrect="off" spellcheck="false"></label>
-      <label>Puesto <input name="role" placeholder="Auxiliar, enfermería, cocina…"></label>
-      <label><span id="empPassLabel">Contraseña</span> <input name="pass" type="password" autocomplete="new-password"></label>
-      <label class="inline"><input type="checkbox" name="active" checked> Activo</label>
-      <p class="msg error" id="empMsg"></p>
+      <div class="dlg-head"><h2 id="dlgEmployeeTitle">Trabajador</h2></div>
+      <div class="dlg-content">
+        <label>Nombre y apellidos <input name="name" required></label>
+        <label>Usuario (para fichar) <input name="username" required autocapitalize="none" autocorrect="off" spellcheck="false"></label>
+        <label>Puesto <input name="role" placeholder="Auxiliar, enfermería, cocina…"></label>
+        <label><span id="empPassLabel">Contraseña</span> <input name="pass" type="password" autocomplete="new-password"></label>
+        <label class="inline switch-label switch-row"><input type="checkbox" class="switch" name="active" checked> Activo</label>
+        <p class="msg error" id="empMsg"></p>
+      </div>
       <div class="dlg-actions">
         <button class="btn" value="cancel" formnovalidate>Cancelar</button>
         <button class="btn primary" value="ok">Guardar</button>
@@ -233,18 +337,20 @@
     </form>
   </dialog>
 
-  <dialog id="dlgRecord">
+  <dialog id="dlgRecord" aria-labelledby="dlgRecordTitle">
     <form method="dialog" id="recordForm" autocomplete="off">
-      <h2 id="dlgRecordTitle">Fichaje manual</h2>
-      <label>Trabajador <select name="empId" required></select></label>
-      <label>Tipo
-        <select name="type"><option value="in">Entrada</option><option value="out">Salida</option></select>
-      </label>
-      <div class="grid2">
-        <label>Fecha <input name="date" type="date" required></label>
-        <label>Hora <input name="time" type="time" required></label>
+      <div class="dlg-head"><h2 id="dlgRecordTitle">Fichaje manual</h2></div>
+      <div class="dlg-content">
+        <label>Trabajador <select name="empId" required></select></label>
+        <label>Tipo
+          <select name="type"><option value="in">Entrada</option><option value="out">Salida</option></select>
+        </label>
+        <div class="grid2">
+          <label>Fecha <input name="date" type="date" required></label>
+          <label>Hora <input name="time" type="time" required></label>
+        </div>
+        <label>Motivo / nota <input name="note" placeholder="Olvidó fichar, corrección…" required></label>
       </div>
-      <label>Motivo / nota <input name="note" placeholder="Olvidó fichar, corrección…" required></label>
       <div class="dlg-actions">
         <button class="btn" value="cancel" formnovalidate>Cancelar</button>
         <button class="btn primary" value="ok">Guardar</button>
@@ -252,11 +358,11 @@
     </form>
   </dialog>
 
-  <dialog id="dlgDetail">
+  <dialog id="dlgDetail" aria-labelledby="detailTitle">
     <div class="dlg-body">
-      <h2 id="detailTitle"></h2>
+      <div class="dlg-head"><h2 id="detailTitle"></h2></div>
       <div class="table-wrap">
-        <table>
+        <table class="t-detail">
           <thead><tr><th>Día</th><th>Tramos</th><th class="num">Horas</th></tr></thead>
           <tbody id="detailBody"></tbody>
         </table>

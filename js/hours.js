@@ -2,11 +2,13 @@
 (function (global) {
   'use strict';
 
-  // Un turno abierto más largo que esto se considera "salida olvidada" y no suma horas.
-  var MAX_OPEN_MS = 16 * 3600 * 1000;
+  // Duración máxima de un turno. Una entrada abierta más tiempo se considera "salida olvidada":
+  // no suma horas y no se empareja con una salida posterior.
+  var DEFAULT_MAX_SHIFT_MS = 16 * 3600 * 1000;
 
   // Convierte la lista de fichajes de un trabajador en tramos [inicio, fin].
-  function sessions(records, nowTs) {
+  function sessions(records, nowTs, maxMs) {
+    maxMs = maxMs || DEFAULT_MAX_SHIFT_MS;
     var out = [];
     var open = null;
     records.forEach(function (r) {
@@ -14,27 +16,32 @@
         if (open) out.push({ start: open.ts, end: null, issue: 'Entrada sin salida' });
         open = r;
       } else if (r.type === 'out') {
-        if (open) {
+        if (open && r.ts - open.ts <= maxMs) {
           out.push({ start: open.ts, end: r.ts });
-          open = null;
         } else {
+          if (open) out.push({ start: open.ts, end: null, issue: 'Entrada sin salida' });
           out.push({ start: null, end: r.ts, issue: 'Salida sin entrada' });
         }
+        open = null;
       }
     });
     if (open) {
-      if (nowTs - open.ts <= MAX_OPEN_MS) out.push({ start: open.ts, end: null, running: true });
+      if (nowTs - open.ts <= maxMs) out.push({ start: open.ts, end: null, running: true });
       else out.push({ start: open.ts, end: null, issue: 'Entrada sin salida' });
     }
     return out;
+  }
+
+  function sessionEnd(s, nowTs) {
+    if (s.start == null) return null;
+    return s.end != null ? s.end : (s.running ? nowTs : null);
   }
 
   // Milisegundos trabajados dentro de [from, to). Los turnos en curso cuentan hasta ahora.
   function workedMs(sess, from, to, nowTs) {
     var total = 0;
     sess.forEach(function (s) {
-      if (s.start == null) return;
-      var end = s.end != null ? s.end : (s.running ? nowTs : null);
+      var end = sessionEnd(s, nowTs);
       if (end == null) return;
       var a = Math.max(s.start, from);
       var b = Math.min(end, to);
@@ -88,24 +95,19 @@
     return new Date(p[0], p[1] - 1, p[2]);
   }
 
-  // Desglose por días: { 'YYYY-MM-DD': { ms, parts: [[start,end,running]] } }
+  // Desglose por días: { 'YYYY-MM-DD': { ms, parts: [[start,end,running]] } }.
+  // Cada turno se imputa al día en que empieza (un turno de noche 22:00–08:00 es un solo día).
   function byDay(sess, from, to, nowTs) {
     var days = {};
     sess.forEach(function (s) {
-      if (s.start == null) return;
-      var end = s.end != null ? s.end : (s.running ? nowTs : null);
+      var end = sessionEnd(s, nowTs);
       if (end == null) return;
       var a = Math.max(s.start, from), b = Math.min(end, to);
-      while (b > a) {
-        var dayStart = startOfDay(a);
-        var next = new Date(dayStart); next.setDate(next.getDate() + 1);
-        var segEnd = Math.min(b, next.getTime());
-        var key = dateKey(dayStart);
-        days[key] = days[key] || { ms: 0, parts: [] };
-        days[key].ms += segEnd - a;
-        days[key].parts.push([a, segEnd, s.running && segEnd === end]);
-        a = segEnd;
-      }
+      if (b <= a) return;
+      var key = dateKey(a);
+      days[key] = days[key] || { ms: 0, parts: [] };
+      days[key].ms += b - a;
+      days[key].parts.push([a, b, !!s.running && b === end]);
     });
     return days;
   }
@@ -120,13 +122,14 @@
     return Math.floor(mins / 60) + ':' + String(mins % 60).padStart(2, '0');
   }
 
-  // Horas en formato decimal con coma, para Excel en español.
+  // Horas en formato decimal con coma, para Excel en español (redondeado al minuto, igual que fmt).
   function fmtDecimal(ms) {
-    return (ms / 3600000).toFixed(2).replace('.', ',');
+    return (Math.round(ms / 60000) / 60).toFixed(2).replace('.', ',');
   }
 
   global.Hours = {
     sessions: sessions, workedMs: workedMs, issuesIn: issuesIn, range: range,
-    byDay: byDay, dateKey: dateKey, fmt: fmt, fmtDecimal: fmtDecimal, MAX_OPEN_MS: MAX_OPEN_MS
+    byDay: byDay, dateKey: dateKey, fmt: fmt, fmtDecimal: fmtDecimal,
+    DEFAULT_MAX_SHIFT_MS: DEFAULT_MAX_SHIFT_MS
   };
 })(typeof window !== 'undefined' ? window : globalThis);
